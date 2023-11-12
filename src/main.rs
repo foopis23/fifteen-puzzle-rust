@@ -1,3 +1,4 @@
+use rand::prelude::*;
 use raylib::prelude::*;
 
 struct Board {
@@ -11,6 +12,18 @@ enum Direction {
     Down,
     Left,
     Right,
+}
+
+impl From<i32> for Direction {
+    fn from(direction: i32) -> Self {
+        match direction {
+            0 => Direction::Up,
+            1 => Direction::Down,
+            2 => Direction::Left,
+            3 => Direction::Right,
+            _ => panic!("Invalid direction"),
+        }
+    }
 }
 
 pub const BACKGROUND_DARKER: Color = Color {
@@ -46,19 +59,36 @@ pub const BORDER: Color = Color {
 pub const MESSAGE_WINDOW_BOUNDS: Rectangle = Rectangle::new(40.0, 140.0, 400.0, 200.0);
 
 impl Board {
-    fn new(cells: Vec<i32>, width: u8) -> Board {
+    fn new(cells: Vec<i32>, size: u8) -> Board {
         let mut board = Board {
             cells,
-            size: width,
+            size,
             solved: false,
         };
         board.check_solved();
         board
     }
 
-    fn set_cells(&mut self, cells: Vec<i32>) {
+    fn scramble(&mut self) {
+        let mut rng = rand::thread_rng();
+        let cells: Vec<i32> = (1..self.size as i32 * self.size as i32 + 1).collect();
         self.cells = cells;
-        self.check_solved();
+
+        for _i in 0..20 {
+            // to create a random board, we generate a solved board 
+            // and then we performance a random number of legal moves
+            // if we accidentally create a solved board, we try again (limited to 20 attempts)
+            let move_count = rng.gen_range(20..100);
+
+            for _ in 0..move_count {
+                self.move_empty(Direction::from(rng.gen_range(0..4)));
+            }
+
+            // if we didn't create a solved board, exit
+            if !self.solved {
+                break;
+            }
+        }
     }
 
     fn draw(&self, d: &mut RaylibDrawHandle) {
@@ -157,38 +187,29 @@ impl Board {
     }
 }
 
-fn format_window_title(level_index: usize) -> String {
+fn format_window_title(level_index: i32) -> String {
     "15 Puzzle - Level ".to_owned() + &(level_index + 1).to_string()
 }
 
 fn main() {
-    let mut level_index = 0;
-    let levels = [
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 13, 14, 15],
-        [12, 1, 2, 15, 11, 6, 5, 8, 7, 10, 9, 4, 16, 13, 14, 3],
-    ];
-
-    let mut board = Board::new(levels[level_index].clone().to_vec(), 4);
+    let mut completed_level_count: i32 = 0;
+    let mut board = Board::new([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].to_vec(), 4);
+    board.scramble();
 
     let (mut rl, thread) = raylib::init()
         .size(480, 480)
-        .title(&format_window_title(level_index))
+        .title(&format_window_title(completed_level_count))
         .build();
 
     rl.set_target_fps(30);
 
     while !rl.window_should_close() {
         // user input
-
-        if rl.is_key_pressed(KeyboardKey::KEY_R) {
-            board.set_cells(levels[level_index].clone().to_vec());
-        }
-
         if board.solved {
-            if rl.is_key_pressed(KeyboardKey::KEY_SPACE) && level_index < levels.len() - 1 {
-                level_index = (level_index + 1) % levels.len();
-                rl.set_window_title(&thread, &format_window_title(level_index));
-                board.set_cells(levels[level_index].clone().to_vec());
+            if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+                completed_level_count += 1;
+                rl.set_window_title(&thread, &format_window_title(completed_level_count));
+                board.scramble();
             }
         } else {
             if rl.is_key_pressed(KeyboardKey::KEY_UP) {
@@ -217,23 +238,13 @@ fn main() {
             d.draw_rectangle_rec(MESSAGE_WINDOW_BOUNDS, BACKGROUND_LIGHTER);
             d.draw_rectangle_lines_ex(MESSAGE_WINDOW_BOUNDS, 2.0, BORDER);
 
-            if level_index < levels.len() - 1 {
-                d.draw_text(
-                    "You win! \nPress [R] to restart level\nPress [SPACE] to continue",
-                    MESSAGE_WINDOW_BOUNDS.x as i32 + 10,
-                    MESSAGE_WINDOW_BOUNDS.y as i32 + 10,
-                    28,
-                    Color::WHITE,
-                )
-            } else {
-                d.draw_text(
-                    "You win! \nPress [R] to restart",
-                    MESSAGE_WINDOW_BOUNDS.x as i32 + 10,
-                    MESSAGE_WINDOW_BOUNDS.y as i32 + 10,
-                    28,
-                    Color::WHITE,
-                )
-            }
+            d.draw_text(
+                "You win!\nPress [SPACE] to continue",
+                MESSAGE_WINDOW_BOUNDS.x as i32 + 10,
+                MESSAGE_WINDOW_BOUNDS.y as i32 + 10,
+                28,
+                Color::WHITE,
+            );
         }
     }
 }
