@@ -43,7 +43,6 @@ pub const BORDER: Color = Color {
     b: 230,
     a: 255,
 };
-
 pub const MESSAGE_WINDOW_BOUNDS: Rectangle = Rectangle::new(40.0, 140.0, 400.0, 200.0);
 
 impl Board {
@@ -175,6 +174,8 @@ fn main() {
         .size(480, 480)
         .title(&format_window_title(level_index))
         .build();
+
+    rl.set_target_fps(30);
 
     while !rl.window_should_close() {
         // user input
